@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  onos:
+    image: onosproject/onos:2.7.0
+    container_name: qos-sdn-onos
+    ports:
+      - "8181:8181"
+      - "6653:6653"
+      - "8101:8101"
+    environment:
+      - JAVA_OPTS=-Xmx2g -Xms1g
+      - TZ=Europe/Moscow
+    restart: unless-stopped
+    networks:
+      - qos-network
+    privileged: true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "-u",
+          "onos:rocks",
+          "http://localhost:8181/onos/v1/devices",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  mininet:
+    image: iwaseyusuke/mininet:ubuntu-20.04
+    container_name: qos-sdn-mininet
+    stdin_open: true
+    tty: true
+    environment:
+      - TZ=Europe/Moscow
+      - ONOS_HOST=onos
+      - ONOS_PORT=6653
+    volumes:
+      - ./src:/project:ro
+    restart: unless-stopped
+    networks:
+      - qos-network
+    privileged: true
+    depends_on:
+      onos:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["sleep infinity"]
+
+networks:
+  qos-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1
